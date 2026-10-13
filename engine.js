@@ -241,6 +241,35 @@ export function calendarMark(date,state,stats){
   const actual=state.periods.find(p=>p.start<=date&&date<=(p.end||today()));
   return {actual:!!actual,predicted:!actual&&!!stats.predictedStart&&date>=stats.predictedStart&&date<=stats.predictedEnd,logged:!!state.logs[date]};
 }
+export function periodQuickEntry(periods,date=today(),asOf=today()){
+  parseDate(date);parseDate(asOf);
+  if(date>asOf)return {status:'future',action:'none',label:'未来日期不能记录',title:'尚未发生',detail:date,periodId:null,day:null};
+  const ordered=[...periods].sort((a,b)=>a.start.localeCompare(b.start));
+  const p=ordered.find(p=>p.start<=date&&date<=(p.end||asOf));
+  if(p){const day=diffDays(date,p.start)+1;
+    if(!p.end)return {status:'ongoing',action:'finish',label:'月经结束了',title:`经期第${day}天`,detail:`${p.start} 开始 · 进行中`,periodId:p.id,day};
+    return {status:p.end===date?'ended':'recorded',action:'none',label:p.end===date?'已记录结束':'已记录经期',title:p.end===date?'经期已结束':`经期第${day}天`,detail:`${p.start} — ${p.end}`,periodId:p.id,day};
+  }
+  if(ordered.some(p=>p.start>date))return {status:'history',action:'edit',label:'补记这次经期',title:'补记经期',detail:'选择开始和结束日期',periodId:null,day:null};
+  return {status:'ready',action:'start',label:'月经来了',title:'记录经期',detail:date===asOf?'记录今天':'记录所选日期',periodId:null,day:null};
+}
+const periodSignature=periods=>JSON.stringify(periods.map(p=>[p.id,p.start,p.end??null,p.startTime??'',p.endTime??'']).sort((a,b)=>a[0].localeCompare(b[0])));
+export function quickPeriodChange(periods,action,date,periodId,newId,asOf=today()){
+  const initial=emptyState();initial.periods=periods;
+  const before=validateState(initial,asOf).periods,entry=periodQuickEntry(before,date,asOf);
+  if(entry.action!==action||!['start','finish'].includes(action))throw new Error('经期状态已变化，请核对当前记录');
+  let record;
+  if(action==='start')record={id:newId,start:date,end:null};
+  else {if(entry.periodId!==periodId)throw new Error('这次经期已变化，请重新打开');record={...before.find(p=>p.id===periodId),end:date};}
+  if(action==='start'&&before.some(p=>p.id===newId))throw new Error('记录标识重复，请重试');
+  const next=emptyState();next.periods=action==='start'?[...before,record]:before.map(p=>p.id===record.id?record:p);
+  const after=validateState(next,asOf).periods;
+  return {before,after,message:`已记录 ${date} ${action==='start'?'开始':'结束'}`};
+}
+export function undoQuickPeriod(periods,change,asOf=today()){
+  if(periodSignature(periods)!==periodSignature(change.after))throw new Error('经期已有后续修改，请在日期记录中调整');
+  const s=emptyState();s.periods=change.before;return validateState(s,asOf).periods;
+}
 export function createDemo(asOf=today()){
   // Fictional examples, relative to the current date so the default 30-day view stays useful.
   // A new state is returned each time; the caller keeps it separate from real records.

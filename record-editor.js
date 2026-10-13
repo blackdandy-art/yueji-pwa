@@ -45,7 +45,7 @@ function summary(log, keys) {
 export function dailyRecordHTML(date, input, hasRecord, period) {
   const log = validateLog(input);
   return `
-    <div class="record-tiles"><button class="record-tile ${period?'has-record':''}" ${period?`data-edit="${esc(period.id)}"`:'data-action="new-period"'}><span class="record-icon" aria-hidden="true">◒</span><span><strong>大姨妈来了</strong><small>${period?'已记录经期 · 点此编辑':'记录开始 / 结束'}</small></span><span class="tile-arrow" aria-hidden="true">›</span></button>${sections.map(([key,icon,label,keys]) => `<button class="record-tile ${keys.length&&summary(log,keys)!=='未记录'?'has-record':''}" data-record-section="${key}"><span class="record-icon" aria-hidden="true">${icon}</span><span><strong>${label}</strong><small>${esc(summary(log,keys))}</small></span><span class="tile-arrow" aria-hidden="true">›</span></button>`).join('')}</div>
+    <div class="record-tiles">${sections.map(([key,icon,label,keys]) => `<button class="record-tile ${keys.length&&summary(log,keys)!=='未记录'?'has-record':''}" data-record-section="${key}"><span class="record-icon" aria-hidden="true">${icon}</span><span><strong>${label}</strong><small>${esc(summary(log,keys))}</small></span><span class="tile-arrow" aria-hidden="true">›</span></button>`).join('')}</div>
     ${hasRecord?'<div class="log-bottom"><button class="text-button" data-action="delete-log">删除这天的全部记录</button></div>':''}`;
 }
 export function dailyHistoryHTML(logs) {
