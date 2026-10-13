@@ -91,6 +91,13 @@ function localDateTime(value,label){
 }
 // 当地日历分钟差；不把没有时区的记录当成 UTC 或擅自调整夏令时。
 export function sleepMinutes(record){return localDateTime(record.end,'清醒时间')-localDateTime(record.start,'入睡时间');}
+// 合并重叠的当地日历时间段；保留用户填写的每一条原始记录。
+export function totalSleepMinutes(records){
+  const ranges=records.map(r=>[localDateTime(r.start,'入睡时间'),localDateTime(r.end,'清醒时间')]).sort((a,b)=>a[0]-b[0]);
+  const merged=[];
+  for(const [start,end] of ranges){const last=merged[merged.length-1];if(last&&start<=last[1])last[1]=Math.max(last[1],end);else merged.push([start,end]);}
+  return merged.reduce((sum,[start,end])=>sum+end-start,0);
+}
 function photo(value){
   const dataUrl=text(value,512*1024,'照片');
   const match=/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(dataUrl);
@@ -151,7 +158,7 @@ export function logSummary(log){
   if(v.color)labels.push(v.color);if(v.discharge)labels.push(`白带${v.discharge}`);
   if(v.temperature!==null)labels.push(`体温 ${v.temperature} ℃`);
   if(v.weight!==null)labels.push(`体重 ${v.weight} kg`);
-  if(v.sleepRecords.length)labels.push(`睡眠 ${v.sleepRecords.reduce((sum,r)=>sum+sleepMinutes(r),0)} 分钟`);
+  if(v.sleepRecords.length)labels.push(`睡眠 ${totalSleepMinutes(v.sleepRecords)} 分钟`);
   labels.push(...v.habits);
   if(v.poopRecords.length)labels.push(`排便 ${v.poopRecords.length} 次`);
   if(v.dietRecords.length)labels.push(`饮食 ${v.dietRecords.length} 条`);

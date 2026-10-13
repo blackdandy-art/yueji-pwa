@@ -1,4 +1,4 @@
-import {blankLog, validateLog, logSummary, FLOW, SYMPTOMS, addDays, sleepMinutes, validatePlans, plansOnDate} from './engine.js';
+import {blankLog, validateLog, logSummary, FLOW, SYMPTOMS, addDays, totalSleepMinutes, validatePlans, plansOnDate} from './engine.js';
 import {MOOD_ITEMS, SYMPTOM_GROUPS, SEX_TYPES, PAIN_LEVELS, COLORS, DISCHARGE, HABITS, POOP_FORMS, POOP_FEELINGS, POOP_VOLUMES, POOP_DURATIONS, MEALS} from './record-options.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -33,7 +33,7 @@ function summary(log, keys) {
     if(key==='weight')return value===null?'未记录':`${value} kg`;
     if(['sexRecords','poopRecords'].includes(key))return value.length?`${value.length} 次`:'未记录';
     if(key==='dietRecords')return value.length?`${value.length} 条`:'未记录';
-    if(key==='sleepRecords'){const minutes=value.reduce((n,r)=>n+sleepMinutes(r),0);return value.length?`${Math.floor(minutes/60)} 小时${minutes%60?' '+minutes%60+' 分钟':''}`:'未记录';}
+    if(key==='sleepRecords'){const minutes=totalSleepMinutes(value);return value.length?`${Math.floor(minutes/60)} 小时${minutes%60?' '+minutes%60+' 分钟':''}`:'未记录';}
     if(key==='ovulation')return value?'已标记':'未记录';
   }
   if(keys.includes('painLevel'))return [log.painLevel==='未记录'?'':log.painLevel,log.pain?`${log.pain}/10`:''].filter(Boolean).join(' · ')||'未记录';
@@ -78,7 +78,7 @@ export function openDailyEditor({section,date,log,allLogs,onSave}) {
       case 'flow':{const choices=['未记录','很少','偏少','正常','偏多','很多'];if(!choices.includes(draft.flow))choices.push(draft.flow);return select('flow','经量',choices,draft.flow)+'<p class="small-label">已有旧版经量值会保留。</p>';}
       case 'pain':return select('painLevel','痛经分级',PAIN_LEVELS,draft.painLevel)+`<label><span class="range-label"><span>疼痛分数 · 0 无痛，10 最痛</span><strong id="record-pain-value">${draft.pain}</strong></span><input name="pain" type="range" min="0" max="10" value="${draft.pain}"></label><p class="small-label">分级与分数分别记录。</p>`;
       case 'color':return select('color','经血颜色',COLORS,draft.color,true);
-      case 'time':return input('flowTime','今日经期记录的时间 · 可不填',draft.flowTime,'time')+'<p class="small-label">经期开始 / 结束时间请在“大姨妈来了”中填写。</p>';
+      case 'time':return input('flowTime','今日经期记录的时间 · 可不填',draft.flowTime,'time')+'<p class="small-label">经期开始 / 结束时间可在“补记 / 修改日期”的“具体时间”中填写。</p>';
       case 'mood':return `<p class="muted">可多选。</p><div class="choice-grid mood-grid">${chips(MOOD_ITEMS,[...draft.moods,...(MOOD_ITEMS.some(m=>m.label===draft.mood)?[draft.mood]:[])],'moods',{emoji:true})}</div>${draft.mood!=='未记录'&&!MOOD_ITEMS.some(m=>m.label===draft.mood)?`<p class="small-label">旧版心情记录</p><div class="choice-grid">${chips([draft.mood],[draft.mood],'legacyMood')}</div>`:''}`;
       case 'symptom':{
         const known=new Set(SYMPTOM_GROUPS.flatMap(g=>g.items));
