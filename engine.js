@@ -250,7 +250,7 @@ export function createDemo(asOf=today()){
   sample(35,'经期初的轻度痛经与腰酸',{flow:'中等',pain:3,painLevel:'轻度',symptoms:['腰酸']});
   sample(34,'上一周期的较重痛经与腰背痛',{painLevel:'重度',symptoms:['腰酸','背痛']});
   sample(18,'鼻塞、流鼻涕与咳嗽',{symptoms:['鼻塞','流鼻涕','咳嗽','身体酸痛']});
-  sample(14,'所记录的排卵痛与分泌物增多',{symptoms:['排卵痛','白带增多'],discharge:'蛋清状'});
+  sample(20,'所记录的排卵痛与分泌物增多',{symptoms:['排卵痛','白带增多'],discharge:'蛋清状'});
   sample(12,'经前焦虑、烦躁与乳房胀痛',{moods:['焦虑','烦躁'],symptoms:['乳房胀痛','失眠','疲惫']});
   sample(10,'经前压力、粉刺与食欲变化',{moods:['压力','内耗'],symptoms:['粉刺','头发出油','食欲旺盛','贪甜食']});
   sample(8,'历史腹痛、呕吐与晕厥，展示紧急提醒',{pain:8,painLevel:'重度',symptoms:['腹痛','呕吐','晕厥']});
