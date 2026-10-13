@@ -242,9 +242,27 @@ export function calendarMark(date,state,stats){
   return {actual:!!actual,predicted:!actual&&!!stats.predictedStart&&date>=stats.predictedStart&&date<=stats.predictedEnd,logged:!!state.logs[date]};
 }
 export function createDemo(asOf=today()){
-  const s=emptyState();for(const offset of [92,63,35]){const start=addDays(asOf,-offset);s.periods.push({id:`demo-${offset}`,start,end:addDays(start,4)});}s.logs[addDays(asOf,-35)]={...blankLog(),flow:'中等',pain:3,mood:'疲惫',symptoms:['腰酸'],notes:'演示记录：今天早点休息。'};
+  // Fictional examples, relative to the current date so the default 30-day view stays useful.
+  // A new state is returned each time; the caller keeps it separate from real records.
+  const s=emptyState();
+  for(const offset of [63,35,6]){const start=addDays(asOf,-offset);s.periods.push({id:`demo-${offset}`,start,end:addDays(start,4)});}
+  const sample=(offset,title,fields)=>{s.logs[addDays(asOf,-offset)]={...blankLog(),...fields,notes:'虚构演示样本：'+title+'。仅用于查看建议，不代表真实健康状况。'};};
+  sample(35,'经期初的轻度痛经与腰酸',{flow:'中等',pain:3,painLevel:'轻度',symptoms:['腰酸']});
+  sample(34,'上一周期的较重痛经与腰背痛',{painLevel:'重度',symptoms:['腰酸','背痛']});
+  sample(18,'鼻塞、流鼻涕与咳嗽',{symptoms:['鼻塞','流鼻涕','咳嗽','身体酸痛']});
+  sample(14,'所记录的排卵痛与分泌物增多',{symptoms:['排卵痛','白带增多'],discharge:'蛋清状'});
+  sample(12,'经前焦虑、烦躁与乳房胀痛',{moods:['焦虑','烦躁'],symptoms:['乳房胀痛','失眠','疲惫']});
+  sample(10,'经前压力、粉刺与食欲变化',{moods:['压力','内耗'],symptoms:['粉刺','头发出油','食欲旺盛','贪甜食']});
+  sample(8,'历史腹痛、呕吐与晕厥，展示紧急提醒',{pain:8,painLevel:'重度',symptoms:['腹痛','呕吐','晕厥']});
+  sample(7,'腹部胀气、腹痛与便秘',{symptoms:['胃肠胀气','腹痛','便秘','放屁多']});
+  sample(6,'经量多、痛经与乏力、苍白或心悸',{flow:'偏多',painLevel:'中度',symptoms:['疲惫','面色苍白','心悸','腰酸']});
+  sample(5,'本周期的较重痛经与腰背痛',{painLevel:'重度',symptoms:['腰酸','背痛']});
+  sample(4,'豆腐渣样分泌物与阴道瘙痒',{symptoms:['豆腐渣样','阴道瘙痒']});
+  sample(3,'尿频、背痛与发热',{symptoms:['尿频','背痛','发烧']});
+  sample(2,'鱼腥气味与灰白色分泌物',{symptoms:['鱼腥臭味','灰白色']});
   const day=addDays(asOf,-1);
-  s.logs[day]={...blankLog(),moods:['挺开心','放松'],symptoms:['腰酸'],sexRecords:[{id:'demo-love',time:'20:30',type:'避孕套'}],temperature:36.65,temperatureTime:'07:00',weight:58.2,habits:['喝水'],sleepRecords:[{id:'demo-sleep',start:`${addDays(day,-1)}T22:00`,end:`${day}T07:00`}],notes:'演示日记：今天早点休息。'};
+  sample(1,'平静的一天与睡眠记录',{moods:['挺开心','放松'],symptoms:['没有症状'],sexRecords:[{id:'demo-love',time:'20:30',type:'避孕套'}],temperature:36.65,temperatureTime:'07:00',weight:58.2,habits:['喝水'],sleepRecords:[{id:'demo-sleep',start:`${addDays(day,-1)}T22:00`,end:`${day}T07:00`}]});
+  sample(0,'头痛、恶心与声音敏感',{symptoms:['头痛','恶心反胃','听力敏感']});
   return s;
 }
 export function calendarICS(stats){if(!stats.predictedStart)return null;const d=s=>s.replaceAll('-','');return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Yueji//Local Period Estimate//ZH','CALSCALE:GREGORIAN','BEGIN:VEVENT',`UID:yueji-${d(stats.predictedStart)}@local`,`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'')}`,`DTSTART;VALUE=DATE:${d(stats.predictedStart)}`,`DTEND;VALUE=DATE:${d(addDays(stats.predictedEnd,1))}`,'SUMMARY:月记 · 经期预计日期','DESCRIPTION:仅为基于本地记录的估计。不可用于避孕或诊断。','END:VEVENT','END:VCALENDAR',''].join('\r\n');}
