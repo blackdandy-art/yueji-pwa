@@ -2,7 +2,7 @@
 // CacheStorage is origin-wide; each app scope owns only its own cache namespace.
 const SCOPE_PATH=new URL(self.registration.scope).pathname;
 const CACHE_PREFIX=SCOPE_PATH==='/'?'yueji-static-v':`yueji-static-scope-${encodeURIComponent(SCOPE_PATH)}-v`;
-const CACHE=`${CACHE_PREFIX}16`;
+const CACHE=`${CACHE_PREFIX}17`;
 const FILES=['./','./index.html','./style.css','./app.js','./local-store.js','./engine.js','./feedback.js','./record-options.js','./record-editor.js','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./icons/apple-touch-icon.png','./icons/icon.svg'];
 const URLS=new Set(FILES.map(path=>new URL(path,self.registration.scope).href));
 async function cacheable(request,response){

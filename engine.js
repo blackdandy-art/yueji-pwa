@@ -1,6 +1,6 @@
 // 月记自主实现的日期与周期模型。日期是当地日历日，不是时间戳。
 import {MOOD_ITEMS,SYMPTOM_GROUPS,SEX_TYPES,PAIN_LEVELS,COLORS,DISCHARGE,HABITS,POOP_FORMS,POOP_FEELINGS,POOP_VOLUMES,POOP_DURATIONS,MEALS} from './record-options.js';
-export const VERSION = 2;
+export const VERSION = 3;
 export const FLOW = ['未记录','点滴','少量','中等','较多','很少','偏少','正常','偏多','很多'];
 export const MOODS = ['未记录','平静','愉快','疲惫','低落','烦躁'];
 export const SYMPTOMS = ['腹胀','头痛','乳房胀痛','腰酸','痘痘','失眠','食欲变化'];
@@ -177,7 +177,7 @@ export function logSummary(log){
   return labels.join(' · ');
 }
 export function validateState(input,asOf=today()){
-  if(!plain(input)||![1,VERSION].includes(input.version)||!plain(input.settings)||!Array.isArray(input.periods)||!plain(input.logs))throw new Error('不是月记支持的备份文件');
+  if(!plain(input)||![1,2,VERSION].includes(input.version)||!plain(input.settings)||!Array.isArray(input.periods)||!plain(input.logs))throw new Error('不是月记支持的备份文件');
   rejectUnsafeKeys(input);parseDate(asOf);
   const state=emptyState();
   state.settings=validateSettings(input.settings);
