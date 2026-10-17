@@ -1,0 +1,2 @@
+// Public Mac identity only; no credentials or decryption keys.
+export const CLOUD_CONFIG=Object.freeze({"enabled":true,"backend":"mac","url":"https://gkk2x8-ip-206-237-119-76.tunnelmole.net","serverId":"d94361bf-a62c-46fc-8616-015dab721a5a","serverPublicKey":{"kty":"EC","x":"04RBU1JGRN6NfIRVV-zzX3S5A3sbhVgASQgtvQBMgSo","y":"pEWaEwC0fF0k1KacLDei02E0Vk07oJnn8tm4gGpZgZo","crv":"P-256"},"discovery":true});
