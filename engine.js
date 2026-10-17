@@ -4,7 +4,7 @@ export const VERSION = 2;
 export const FLOW = ['未记录','点滴','少量','中等','较多','很少','偏少','正常','偏多','很多'];
 export const MOODS = ['未记录','平静','愉快','疲惫','低落','烦躁'];
 export const SYMPTOMS = ['腹胀','头痛','乳房胀痛','腰酸','痘痘','失眠','食欲变化'];
-export const DEFAULTS = {cycleLength:28,periodLength:5};
+export const DEFAULTS = {cycleLength:28,periodLength:5,predictionMode:'recent',autoPeriodLength:true,useOvulation:false,lutealLength:14};
 const dayMs = 86400000;
 export function parseDate(value) {
   if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('日期格式应为 YYYY-MM-DD');
@@ -20,6 +20,16 @@ export function today(){const d=new Date();return `${d.getFullYear()}-${String(d
 export function median(values){if(!values.length)return null;const a=[...values].sort((x,y)=>x-y),i=Math.floor(a.length/2);return a.length%2?a[i]:(a[i-1]+a[i])/2;}
 export function emptyState(){return {version:VERSION,settings:{...DEFAULTS},periods:[],logs:{},plans:[]};}
 const plain = v=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&Object.getPrototypeOf(v)===Object.prototype;
+export function validateSettings(input){
+  if(!plain(input))throw new Error('周期设置格式不正确');
+  return {
+    cycleLength:integer(input.cycleLength,15,90,'默认周期'),periodLength:integer(input.periodLength,1,15,'默认经期'),
+    predictionMode:input.predictionMode===undefined?'recent':option(input.predictionMode,['recent','manual','meiyou-legacy'],'预测方式'),
+    autoPeriodLength:input.autoPeriodLength===undefined?true:boolean(input.autoPeriodLength,'自动估计经期'),
+    useOvulation:input.useOvulation===undefined?false:boolean(input.useOvulation,'手动排卵修正'),
+    lutealLength:input.lutealLength===undefined?14:integer(input.lutealLength,7,20,'排卵后间隔')
+  };
+}
 function integer(value,min,max,label){if(!Number.isInteger(value)||value<min||value>max)throw new Error(`${label}超出允许范围`);return value;}
 function text(value,max,label){if(typeof value!=='string'||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value))throw new Error(`${label}格式不正确`);return value;}
 export function validatePeriod(period,others=[],asOf=today()){
@@ -170,7 +180,7 @@ export function validateState(input,asOf=today()){
   if(!plain(input)||![1,VERSION].includes(input.version)||!plain(input.settings)||!Array.isArray(input.periods)||!plain(input.logs))throw new Error('不是月记支持的备份文件');
   rejectUnsafeKeys(input);parseDate(asOf);
   const state=emptyState();
-  state.settings={cycleLength:integer(input.settings.cycleLength,15,90,'默认周期'),periodLength:integer(input.settings.periodLength,1,15,'默认经期')};
+  state.settings=validateSettings(input.settings);
   if(input.periods.length>5000||Object.keys(input.logs).length>30000)throw new Error('备份记录数量过多');
   const ids=new Set();for(const p of input.periods){if(ids.has(p?.id))throw new Error('经期记录标识重复');const valid=validatePeriod(p,state.periods,asOf);ids.add(valid.id);state.periods.push(valid);}
   const now=new Date(), futureLimit=parseDate(asOf)*1440+(asOf===today()?now.getHours()*60+now.getMinutes():1439);
@@ -230,23 +240,56 @@ export function plannedICS(plan){
   return lines.map(foldICS).join('\r\n');
 }
 export function cycleStats(state,asOf=today()){
-  const periods=[...state.periods].sort((a,b)=>a.start.localeCompare(b.start));
+  parseDate(asOf);
+  const settings=validateSettings(state.settings);
+  // A historical view must not learn from a later start or a later end.
+  const periods=state.periods.filter(p=>p.start<=asOf).map(p=>p.end&&p.end>asOf?{...p,end:null,endTime:''}:{...p}).sort((a,b)=>a.start.localeCompare(b.start));
   const allIntervals=periods.slice(1).map((p,i)=>diffDays(p.start,periods[i].start));
   const intervals=allIntervals.filter(n=>n>=15&&n<=90).slice(-6);
-  const cycleLength=intervals.length?Math.round(median(intervals)):state.settings.cycleLength;
+  let cycleLength=settings.cycleLength,cycleSource='settings',cycleSamples=0,legacyReason=null;
+  if(settings.predictionMode==='recent'&&intervals.length){cycleLength=Math.round(median(intervals));cycleSource='recent';cycleSamples=intervals.length;}
+  if(settings.predictionMode==='meiyou-legacy'){
+    // Independent local implementation of the observed older calibration rule.
+    // Calendar-day arithmetic and numeric sorting deliberately fix old-script defects.
+    const sample=periods.slice(-10),recentNine=sample.slice(1).map((p,i)=>diffDays(p.start,sample[i].start));
+    if(sample.length<10||sample.slice(0,-1).some(p=>!p.end))legacyReason='not-enough';
+    else if(diffDays(asOf,sample[0].start)>365)legacyReason='too-old';
+    else if(recentNine.some(n=>n<15||n>90))legacyReason='invalid-interval';
+    else {
+      cycleSamples=9;
+      const sorted=[...recentNine].sort((a,b)=>a-b),mean=values=>Math.round(values.reduce((a,b)=>a+b,0)/values.length*10)/10;
+      const middle=median(recentNine),recentMean=mean(recentNine.slice(-4)),trimmedMean=mean(sorted.slice(1,-1));
+      if([recentMean,middle,trimmedMean].every(n=>Math.abs(n-settings.cycleLength)>5)){
+        cycleLength=Math.round(middle);cycleSource='legacy';legacyReason='calibrated';
+      }else legacyReason='within-threshold';
+    }
+  }
   const durations=periods.filter(p=>p.end).map(p=>diffDays(p.end,p.start)+1).filter(n=>n>=1&&n<=15).slice(-6);
-  const periodLength=durations.length?Math.round(median(durations)):state.settings.periodLength;
+  const useDuration=settings.autoPeriodLength&&durations.length>0;
+  const periodLength=useDuration?Math.round(median(durations)):settings.periodLength;
   const latest=periods.at(-1)||null;
-  const predictedStart=latest?addDays(latest.start,cycleLength):null;
+  const baselineStart=latest?addDays(latest.start,cycleLength):null;
+  let predictedStart=baselineStart,ovulationDate=null,ovulationStatus=settings.useOvulation?'none':'off';
+  if(settings.useOvulation&&latest){
+    const marks=Object.entries(state.logs||{}).filter(([date,log])=>date>latest.start&&date<=asOf&&(!latest.end||date>latest.end)&&log.ovulation===true).map(([date])=>date).sort();
+    marks.forEach(parseDate);
+    if(marks.length===1){ovulationDate=marks[0];ovulationStatus='applied';predictedStart=addDays(ovulationDate,settings.lutealLength);}
+    else if(marks.length>1)ovulationStatus='conflict';
+  }
+  const active=latest&&!latest.end?latest:null;
+  const blockedReason=active&&diffDays(asOf,active.start)>=cycleLength?'ongoing-overdue':null;
+  if(blockedReason)predictedStart=null;
   const predictedEnd=predictedStart?addDays(predictedStart,periodLength-1):null;
   const until=predictedStart?diffDays(predictedStart,asOf):null;
-  const active=latest&&!latest.end?latest:null;
   const cycleDay=latest?diffDays(asOf,latest.start)+1:null;
-  return {periods,intervals,excluded:allIntervals.length-allIntervals.filter(n=>n>=15&&n<=90).length,cycleLength,periodLength,latest,predictedStart,predictedEnd,until,active,cycleDay,range:intervals.length?[Math.min(...intervals),Math.max(...intervals)]:null};
+  const range=intervals.length?[Math.min(...intervals),Math.max(...intervals)]:null;
+  const showRange=latest&&settings.predictionMode==='recent'&&intervals.length>=2&&ovulationStatus!=='applied'&&!blockedReason;
+  const prediction={mode:settings.predictionMode,cycleSource,cycleSamples,durationSource:useDuration?'recent':'settings',durationSamples:useDuration?durations.length:0,legacyReason,ovulationDate,ovulationStatus,baselineStart,rangeStart:showRange?addDays(latest.start,range[0]):null,rangeEnd:showRange?addDays(latest.start,range[1]):null,blockedReason};
+  return {asOf,periods,intervals,excluded:allIntervals.filter(n=>n<15||n>90).length,cycleLength,periodLength,latest,predictedStart,predictedEnd,until,active,cycleDay,range,prediction};
 }
 export function calendarMark(date,state,stats){
-  const actual=state.periods.find(p=>p.start<=date&&date<=(p.end||today()));
-  return {actual:!!actual,predicted:!actual&&!!stats.predictedStart&&date>=stats.predictedStart&&date<=stats.predictedEnd,logged:!!state.logs[date]};
+  const asOf=stats.asOf||today(),actual=(stats.periods||state.periods).find(p=>p.start<=asOf&&p.start<=date&&date<=(p.end&&p.end<=asOf?p.end:asOf));
+  return {actual:!!actual,predicted:!actual&&!!stats.predictedStart&&date>=stats.predictedStart&&date<=stats.predictedEnd,logged:date<=asOf&&!!state.logs[date]};
 }
 export function periodQuickEntry(periods,date=today(),asOf=today()){
   parseDate(date);parseDate(asOf);
